@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ClipMaker — AI Viral Clip Generator</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="https://upload-widget.cloudinary.com/latest/global/all.js" type="text/javascript"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #06060f;
+      color: #fff;
+      overflow-x: hidden;
+    }
+
+    /* ── Ambient gradient ── */
+    .bg-scene {
+      background:
+        radial-gradient(ellipse 90% 55% at 50% -5%,  rgba(99,102,241,.22) 0%, transparent 70%),
+        radial-gradient(ellipse 55% 45% at 85% 90%,  rgba(139,92,246,.14) 0%, transparent 65%),
+        radial-gradient(ellipse 40% 35% at 5%  70%,  rgba(59,130,246,.08) 0%, transparent 60%),
+        #06060f;
+    }
+
+    /* ── Orbs ── */
+    .orb {
+      position: fixed; border-radius: 50%; pointer-events: none;
+      filter: blur(80px); will-change: transform;
+    }
+    .orb-1 {
+      width: 700px; height: 700px;
+      top: -15%; left: 15%;
+      background: radial-gradient(circle, rgba(99,102,241,.35) 0%, transparent 70%);
+      animation: float1 12s ease-in-out infinite;
+    }
+    .orb-2 {
+      width: 550px; height: 550px;
+      bottom: -10%; right: 5%;
+      background: radial-gradient(circle, rgba(139,92,246,.28) 0%, transparent 70%);
+      animation: float2 15s ease-in-out infinite 3s;
+    }
+    @keyframes float1 {
+      0%,100% { transform: translate(0,0) rotate(0deg); }
+      33%      { transform: translate(30px,-40px) rotate(6deg); }
+      66%      { transform: translate(-20px,-20px) rotate(-4deg); }
+    }
+    @keyframes float2 {
+      0%,100% { transform: translate(0,0); }
+      50%      { transform: translate(-40px, 25px); }
+    }
+
+    /* ── Glass ── */
+    .glass {
+      background: rgba(255,255,255,.035);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .glass-card {
+      background: rgba(255,255,255,.045);
+      backdrop-filter: blur(40px);
+      -webkit-backdrop-filter: blur(40px);
+      border: 1px solid rgba(255,255,255,.1);
+    }
+
+    /* ── Gradient text ── */
+    .g-text {
+      background: linear-gradient(135deg, #fff 0%, #a5b4fc 45%, #818cf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ── Separator ── */
+    .sep {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(99,102,241,.35), transparent);
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #06060f; }
+    ::-webkit-scrollbar-thumb { background: rgba(99,102,241,.4); border-radius: 3px; }
+
+    /* ── Navbar ── */
+    #navbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      background: rgba(6,6,15,.6);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      transition: all .3s;
+    }
+
+    /* ── Upload CTA button ── */
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      transition: transform .3s cubic-bezier(.34,1.56,.64,1),
+                  box-shadow .3s ease,
+                  background .3s ease;
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #818cf8, #6366f1);
+      transform: scale(1.02) translateY(-1px);
+      box-shadow: 0 20px 40px rgba(99,102,241,.45), 0 0 80px rgba(99,102,241,.18);
+    }
+    .btn-primary:active { transform: scale(.98) translateY(0); }
+
+    .btn-ghost {
+      transition: all .25s;
+      border: 1px solid rgba(255,255,255,.1);
+      background: rgba(255,255,255,.03);
+    }
+    .btn-ghost:hover {
+      background: rgba(255,255,255,.07);
+      border-color: rgba(99,102,241,.35);
+      color: #fff;
+    }
+
+    /* ── Input ── */
+    .api-input {
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.1);
+      color: #fff;
+      transition: border-color .25s, box-shadow .25s;
+      outline: none;
+    }
+    .api-input::placeholder { color: rgba(255,255,255,.25); }
+    .api-input:focus {
+      border-color: rgba(99,102,241,.6);
+      box-shadow: 0 0 0 3px rgba(99,102,241,.12), 0 0 20px rgba(99,102,241,.1);
+    }
+
+    /* ── Bento cards ── */
+    .bento {
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 20px;
+      transition: transform .3s cubic-bezier(.34,1.56,.64,1),
+                  border-color .3s, box-shadow .3s;
+    }
+    .bento:hover {
+      transform: scale(1.015) translateY(-2px);
+      border-color: rgba(99,102,241,.28);
+      box-shadow: 0 24px 48px rgba(0,0,0,.4), 0 0 40px rgba(99,102,241,.08);
+    }
+
+    /* ── Spinner ── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin { animation: spin 1s linear infinite; }
+
+    /* ── Pulse dot ── */
+    @keyframes pulse-ring {
+      0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,.6); }
+      50%      { box-shadow: 0 0 0 5px rgba(99,102,241,0); }
+    }
+    .pulse-dot { animation: pulse-ring 2s infinite; }
+
+    /* ── Progress bar shimmer ── */
+    @keyframes progress-shimmer {
+      0%   { background-position: -200% center; }
+      100% { background-position:  200% center; }
+    }
+    #progressBar {
+      background: linear-gradient(90deg, #4f46e5, #818cf8, #4f46e5);
+      background-size: 200% 100%;
+      animation: progress-shimmer 2s linear infinite;
+      transition: width .6s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* ── Noise overlay ── */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 9999; opacity: .025;
+    }
+
+    /* ── Video ── */
+    #videoPlayer { display: block; width: 100%; border-radius: 12px; background: #000; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: rgba(255,255,255,.07);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,.12);
+      color: #fff; font-size: .875rem; padding: 10px 20px;
+      border-radius: 999px; z-index: 9000;
+      opacity: 0; pointer-events: none;
+      transition: opacity .3s, transform .3s;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── Scroll reveal defaults ── */
+    .reveal { opacity: 0; transform: translateY(32px); }
+  </style>
+</head>
+
+<body class="bg-scene">
+  <!-- Ambient orbs -->
+  <div class="orb orb-1" aria-hidden="true"></div>
+  <div class="orb orb-2" aria-hidden="true"></div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- ═══════════════════════ NAVBAR ═══════════════════════ -->
+  <nav id="navbar" aria-label="Navegação principal">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+
+      <!-- Logo -->
+      <a href="#" class="flex items-center gap-3 select-none" aria-label="ClipMaker Home">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center btn-primary flex-shrink-0" style="box-shadow:0 4px 16px rgba(99,102,241,.4)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+        </div>
+        <span class="font-bold text-white tracking-tight text-[1.05rem]">ClipMaker</span>
+        <span class="hidden sm:inline px-2 py-0.5 text-[10px] font-semibold tracking-widest uppercase rounded-full text-indigo-300" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25)">AI Beta</span>
+      </a>
+
+      <!-- Links -->
+      <div class="hidden md:flex items-center gap-7" role="list">
+        <a href="#features" class="text-[.85rem] text-slate-400 hover:text-white transition-colors duration-200" role="listitem">Como funciona</a>
+        <a href="#app"      class="text-[.85rem] text-slate-400 hover:text-white transition-colors duration-200" role="listitem">Usar agora</a>
+      </div>
+
+      <a href="#app" class="btn-primary px-5 py-2 rounded-xl text-sm font-semibold text-white cursor-pointer">
+        Começar grátis
+      </a>
+    </div>
+  </nav>
+
+  <!-- ═══════════════════════ HERO ═══════════════════════ -->
+  <header class="pt-36 pb-24 px-6 text-center relative">
+    <div class="max-w-4xl mx-auto">
+
+      <!-- Badge -->
+      <div id="hero-badge" class="reveal inline-flex items-center gap-2 px-4 py-2 rounded-full glass text-[.8rem] text-indigo-300 mb-8 cursor-default select-none">
+        <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 pulse-dot flex-shrink-0"></span>
+        Powered by Gemini 2.5 Flash&nbsp;+&nbsp;Cloudinary
+        <i data-lucide="sparkles" class="w-3.5 h-3.5" aria-hidden="true"></i>
+      </div>
+
+      <!-- Headline -->
+      <h1 id="hero-title" class="reveal text-[clamp(2.8rem,8vw,5.5rem)] font-black tracking-tight leading-[1.04] mb-7">
+        <span class="text-white">Encontre o momento</span><br>
+        <span class="g-text">viral do seu vídeo</span>
+      </h1>
+
+      <!-- Subtitle -->
+      <p id="hero-sub" class="reveal text-[1.05rem] text-slate-400 max-w-2xl mx-auto mb-14 leading-relaxed">
+        Faça upload do seu vídeo ou áudio. Nossa IA analisa a transcrição, identifica o segmento mais impactante e gera o clipe de 30–60 s automaticamente.
+      </p>
+
+      <!-- Stats strip -->
+      <div id="hero-stats" class="reveal flex items-center justify-center gap-6 sm:gap-12 flex-wrap">
+        <div class="text-center">
+          <div class="text-2xl font-bold text-white">30–60s</div>
+          <div class="text-[.72rem] text-slate-500 mt-1 uppercase tracking-wider">Duração ideal</div>
+        </div>
+        <div class="w-px h-10 bg-white/10 hidden sm:block"></div>
+        <div class="text-center">
+          <div class="text-2xl font-bold text-white">Gemini&nbsp;AI</div>
+          <div class="text-[.72rem] text-slate-500 mt-1 uppercase tracking-wider">Análise semântica</div>
+        </div>
+        <div class="w-px h-10 bg-white/10 hidden sm:block"></div>
+        <div class="text-center">
+          <div class="text-2xl font-bold text-white">100%</div>
+          <div class="text-[.72rem] text-slate-500 mt-1 uppercase tracking-wider">Automático</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════ APP CARD ═══════════════════════ -->
+  <section id="app" class="pb-32 px-6" aria-label="Gerar clipe viral">
+    <div class="max-w-[600px] mx-auto">
+
+      <div id="app-card" class="reveal glass-card rounded-2xl p-8 relative overflow-hidden" style="box-shadow:0 32px 80px rgba(0,0,0,.5),0 0 60px rgba(99,102,241,.07)">
+
+        <!-- Gradient tint top-left -->
+        <div class="absolute inset-0 rounded-2xl pointer-events-none" style="background:linear-gradient(135deg,rgba(99,102,241,.06) 0%,transparent 55%)" aria-hidden="true"></div>
+
+        <!-- Card header -->
+        <div class="flex items-start justify-between mb-8 relative">
+          <div>
+            <h2 class="text-xl font-bold text-white tracking-tight">Gerar Clipe Viral</h2>
+            <p class="text-sm text-slate-500 mt-1">Preencha os dados e faça o upload do seu conteúdo</p>
+          </div>
+          <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ml-4" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.2)">
+            <i data-lucide="zap" class="w-5 h-5 text-indigo-400" aria-hidden="true"></i>
+          </div>
+        </div>
+
+        <!-- API Key input -->
+        <div class="mb-6 relative">
+          <label for="apiKeyInput" class="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2.5">
+            <i data-lucide="key" class="w-3.5 h-3.5 text-indigo-400" aria-hidden="true"></i>
+            Chave da API Gemini
+          </label>
+          <div class="relative">
+            <input
+              id="apiKeyInput"
+              type="password"
+              placeholder="AIzaSy…"
+              autocomplete="off"
+              spellcheck="false"
+              class="api-input w-full rounded-xl px-4 py-3.5 text-sm pr-12"
+              aria-label="Chave de API do Gemini"
+            />
+            <button
+              id="toggleVis"
+              type="button"
+              aria-label="Alternar visibilidade da chave"
+              class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              <i data-lucide="eye" id="eyeIcon" class="w-4 h-4" aria-hidden="true"></i>
+            </button>
+          </div>
+          <p class="flex items-center gap-1.5 text-[.72rem] text-slate-600 mt-2">
+            <i data-lucide="shield" class="w-3 h-3" aria-hidden="true"></i>
+            Chave processada localmente — nunca armazenada
+          </p>
+        </div>
+
+        <div class="sep mb-6"></div>
+
+        <!-- Upload area -->
+        <div class="mb-2">
+          <label class="flex items-center gap-2 text-sm font-medium text-slate-300 mb-3">
+            <i data-lucide="upload-cloud" class="w-3.5 h-3.5 text-indigo-400" aria-hidden="true"></i>
+            Vídeo ou Áudio
+          </label>
+          <button
+            id="uploadBtn"
+            type="button"
+            onclick="handleUploadClick()"
+            class="btn-primary w-full py-4 rounded-xl font-semibold text-white flex items-center justify-center gap-2.5 relative overflow-hidden"
+            aria-label="Selecionar arquivo para upload"
+          >
+            <i data-lucide="upload" id="uploadIcon" class="w-5 h-5" aria-hidden="true"></i>
+            <span id="uploadBtnText">Selecionar arquivo</span>
+          </button>
+          <p class="text-center text-[.7rem] text-slate-600 mt-2">MP3 · WAV · M4A · AAC · OGG · MP4 · MOV · WEBM</p>
+        </div>
+
+        <!-- Status panel -->
+        <div id="statusPanel" class="hidden mt-6">
+          <div class="sep mb-6"></div>
+          <div class="glass rounded-xl p-4" style="border-color:rgba(255,255,255,.06)">
+            <div class="flex items-center gap-3">
+              <div id="statusIconWrap" class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background:rgba(99,102,241,.14);border:1px solid rgba(99,102,241,.18)">
+                <i data-lucide="loader-2" id="statusIconEl" class="w-4 h-4 text-indigo-400 spin" aria-hidden="true"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-[.7rem] text-slate-500 uppercase tracking-wider mb-0.5">Status</div>
+                <div id="statusText" class="text-sm text-slate-200 truncate" aria-live="polite">Processando…</div>
+              </div>
+            </div>
+            <div class="mt-3 h-[3px] rounded-full overflow-hidden" style="background:rgba(255,255,255,.06)">
+              <div id="progressBar" class="h-full rounded-full" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Transcription panel -->
+        <div id="transcriptionPanel" class="hidden mt-6">
+          <div class="sep mb-6"></div>
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2 text-sm font-medium text-slate-300">
+              <i data-lucide="file-text" class="w-3.5 h-3.5 text-indigo-400" aria-hidden="true"></i>
+              Transcrição
+            </div>
+            <button onclick="copyTranscription()" class="text-[.75rem] text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1" aria-label="Copiar transcrição">
+              <i data-lucide="copy" class="w-3 h-3" aria-hidden="true"></i>Copiar
+            </button>
+          </div>
+          <div class="glass rounded-xl p-4 max-h-36 overflow-y-auto" style="border-color:rgba(255,255,255,.06)">
+            <p id="transcriptionText" class="text-sm text-slate-400 leading-relaxed"></p>
+          </div>
+        </div>
+
+        <!-- Video panel -->
+        <div id="videoPanel" class="hidden mt-6">
+          <div class="sep mb-6"></div>
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2 text-sm font-medium text-slate-300">
+              <i data-lucide="clapperboard" class="w-3.5 h-3.5 text-indigo-400" aria-hidden="true"></i>
+              Clipe Viral Gerado
+            </div>
+            <span class="flex items-center gap-1.5 text-[.72rem] text-emerald-400 font-medium">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" aria-hidden="true"></span>
+              Pronto
+            </span>
+          </div>
+          <div class="rounded-xl overflow-hidden bg-black">
+            <video id="videoPlayer" controls playsinline aria-label="Clipe viral gerado"></video>
+          </div>
+          <button
+            onclick="downloadClip()"
+            class="btn-ghost w-full mt-3 py-3 rounded-xl text-sm font-medium text-slate-300 hover:text-white flex items-center justify-center gap-2"
+            aria-label="Baixar clipe viral"
+          >
+            <i data-lucide="download" class="w-4 h-4" aria-hidden="true"></i>
+            Baixar clipe
+          </button>
+        </div>
+
+      </div><!-- /app-card -->
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ HOW IT WORKS ═══════════════════════ -->
+  <section id="features" class="py-28 px-6" aria-labelledby="features-title">
+    <div class="max-w-6xl mx-auto">
+
+      <!-- Section header -->
+      <div class="text-center mb-20">
+        <div class="reveal inline-flex items-center gap-2 px-4 py-2 rounded-full glass text-[.8rem] text-slate-400 mb-6 select-none">
+          <i data-lucide="cpu" class="w-3.5 h-3.5 text-indigo-400" aria-hidden="true"></i>
+          Como funciona
+        </div>
+        <h2 id="features-title" class="reveal text-[clamp(2rem,5vw,3.4rem)] font-black tracking-tight text-white mb-5">
+          Três etapas.<br>
+          <span class="g-text">Um clipe perfeito.</span>
+        </h2>
+        <p class="reveal text-slate-400 max-w-xl mx-auto text-[1rem] leading-relaxed">
+          Nossa pipeline de IA processa seu conteúdo de forma inteligente para encontrar exatamente o momento certo.
+        </p>
+      </div>
+
+      <!-- Bento grid row 1 -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+
+        <!-- Step 1 -->
+        <article class="bento reveal p-7">
+          <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-6" style="background:linear-gradient(135deg,rgba(99,102,241,.18),rgba(99,102,241,.08));border:1px solid rgba(99,102,241,.2)">
+            <i data-lucide="upload-cloud" class="w-6 h-6 text-indigo-400" aria-hidden="true"></i>
+          </div>
+          <div class="text-[.65rem] font-bold text-indigo-400 tracking-[.18em] uppercase mb-2">Etapa 01</div>
+          <h3 class="text-lg font-bold text-white mb-2 tracking-tight">Upload do conteúdo</h3>
+          <p class="text-sm text-slate-500 leading-relaxed">Envie qualquer arquivo de vídeo ou áudio. O Cloudinary processa e transcreve automaticamente em segundo plano.</p>
+        </article>
+
+        <!-- Step 2 -->
+        <article class="bento reveal p-7 relative overflow-hidden">
+          <div class="absolute -top-8 -right-8 w-36 h-36 rounded-full pointer-events-none" style="background:radial-gradient(circle,rgba(139,92,246,.18),transparent)" aria-hidden="true"></div>
+          <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-6 relative" style="background:linear-gradient(135deg,rgba(139,92,246,.18),rgba(139,92,246,.08));border:1px solid rgba(139,92,246,.22)">
+            <i data-lucide="brain" class="w-6 h-6 text-violet-400" aria-hidden="true"></i>
+          </div>
+          <div class="text-[.65rem] font-bold text-violet-400 tracking-[.18em] uppercase mb-2 relative">Etapa 02</div>
+          <h3 class="text-lg font-bold text-white mb-2 tracking-tight relative">Análise com Gemini</h3>
+          <p class="text-sm text-slate-500 leading-relaxed relative">O Gemini 2.5 Flash lê a transcrição completa e detecta humor, emoção e momentos de pico de engajamento.</p>
+        </article>
+
+        <!-- Step 3 -->
+        <article class="bento reveal p-7">
+          <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-6" style="background:linear-gradient(135deg,rgba(16,185,129,.18),rgba(16,185,129,.08));border:1px solid rgba(16,185,129,.2)">
+            <i data-lucide="clapperboard" class="w-6 h-6 text-emerald-400" aria-hidden="true"></i>
+          </div>
+          <div class="text-[.65rem] font-bold text-emerald-400 tracking-[.18em] uppercase mb-2">Etapa 03</div>
+          <h3 class="text-lg font-bold text-white mb-2 tracking-tight">Clipe pronto</h3>
+          <p class="text-sm text-slate-500 leading-relaxed">O segmento identificado é recortado e entregue pronto para publicação em qualquer plataforma social.</p>
+        </article>
+
+      </div>
+
+      <!-- Wide bento card -->
+      <article class="bento reveal p-8">
+        <div class="flex flex-col md:flex-row items-start md:items-center gap-8">
+          <div class="flex-1">
+            <div class="text-[.65rem] font-bold text-indigo-400 tracking-[.18em] uppercase mb-3">Formatos suportados</div>
+            <h3 class="text-2xl font-bold text-white mb-3 tracking-tight">Compatível com qualquer formato</h3>
+            <p class="text-slate-500 text-sm leading-relaxed">Suportamos os formatos de vídeo e áudio mais populares. Basta fazer o upload e deixar a IA trabalhar.</p>
+          </div>
+          <div class="flex flex-wrap gap-2" aria-label="Formatos de arquivo suportados">
+            <span class="format-tag">MP4</span>
+            <span class="format-tag">MOV</span>
+            <span class="format-tag">WEBM</span>
+            <span class="format-tag">MP3</span>
+            <span class="format-tag">WAV</span>
+            <span class="format-tag">M4A</span>
+            <span class="format-tag">AAC</span>
+            <span class="format-tag">OGG</span>
+          </div>
+        </div>
+      </article>
+      <style>
+        .format-tag {
+          padding: 6px 14px; border-radius: 8px;
+          font-size: .78rem; font-family: 'Inter', monospace; font-weight: 600;
+          color: #cbd5e1;
+          background: rgba(255,255,255,.04);
+          border: 1px solid rgba(255,255,255,.1);
+          transition: border-color .25s, color .25s;
+        }
+        .format-tag:hover { border-color: rgba(99,102,241,.4); color: #a5b4fc; }
+      </style>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ FOOTER ═══════════════════════ -->
+  <footer class="py-12 px-6" style="border-top:1px solid rgba(255,255,255,.05)" role="contentinfo">
+    <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-5">
+      <div class="flex items-center gap-3">
+        <div class="w-6 h-6 rounded-md flex items-center justify-center btn-primary" style="box-shadow:0 2px 10px rgba(99,102,241,.4)" aria-hidden="true">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+        </div>
+        <span class="text-sm font-bold text-white">ClipMaker</span>
+      </div>
+      <p class="text-[.78rem] text-slate-600">Construído com Gemini AI &amp; Cloudinary · NLW 2025</p>
+      <div class="flex items-center gap-5">
+        <a href="#" class="text-[.75rem] text-slate-600 hover:text-slate-400 transition-colors">Privacidade</a>
+        <a href="#" class="text-[.75rem] text-slate-600 hover:text-slate-400 transition-colors">Termos</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ═══════════════════════ JAVASCRIPT ═══════════════════════ -->
+  <script>
+    /* ─── Config ─── */
+    const CLOUD_NAME    = 'duglttn5l';
+    const UPLOAD_PRESET = 'upload_pedro_nlw';
+    const GEMINI_MODEL  = 'gemini-2.5-flash';
+
+    /* ─── State ─── */
+    let currentApiKey = '';
+    let transcriptionRaw = '';
+
+    /* ─── DOM refs ─── */
+    const apiInput        = document.getElementById('apiKeyInput');
+    const uploadBtn       = document.getElementById('uploadBtn');
+    const uploadBtnText   = document.getElementById('uploadBtnText');
+    const uploadIconEl    = document.getElementById('uploadIcon');
+    const statusPanel     = document.getElementById('statusPanel');
+    const statusText      = document.getElementById('statusText');
+    const progressBar     = document.getElementById('progressBar');
+    const statusIconEl    = document.getElementById('statusIconEl');
+    const statusIconWrap  = document.getElementById('statusIconWrap');
+    const transcPanel     = document.getElementById('transcriptionPanel');
+    const transcTextEl    = document.getElementById('transcriptionText');
+    const videoPanel      = document.getElementById('videoPanel');
+    const videoPlayer     = document.getElementById('videoPlayer');
+    const eyeIcon         = document.getElementById('eyeIcon');
+
+    /* ─── Toast ─── */
+    const toastEl = document.getElementById('toast');
+    let toastTimer;
+    function showToast(msg) {
+      clearTimeout(toastTimer);
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2800);
+    }
+
+    /* ─── API key visibility toggle ─── */
+    document.getElementById('toggleVis').addEventListener('click', () => {
+      const hidden = apiInput.type === 'password';
+      apiInput.type = hidden ? 'text' : 'password';
+      eyeIcon.setAttribute('data-lucide', hidden ? 'eye-off' : 'eye');
+      lucide.createIcons();
+    });
+
+    /* ─── Status helpers ─── */
+    function setStatus(msg, pct = -1) {
+      statusPanel.classList.remove('hidden');
+      statusText.textContent = msg;
+      if (pct >= 0) progressBar.style.width = pct + '%';
+    }
+
+    function setStatusIcon(icon, colorClass, bgStyle) {
+      statusIconEl.setAttribute('data-lucide', icon);
+      statusIconEl.className = `w-4 h-4 ${colorClass}`;
+      if (bgStyle) statusIconWrap.style.background = bgStyle;
+      lucide.createIcons();
+    }
+
+    function setError(msg) {
+      setStatus(msg, 100);
+      progressBar.style.background = '#ef4444';
+      setStatusIcon('alert-circle', 'text-red-400', 'rgba(239,68,68,.14)');
+    }
+
+    function setDone() {
+      setStatusIcon('check-circle-2', 'text-emerald-400', 'rgba(16,185,129,.14)');
+    }
+
+    /* ─── Upload button state ─── */
+    function setUploadLoading(loading) {
+      uploadBtn.disabled = loading;
+      uploadBtn.style.opacity = loading ? '.8' : '1';
+      if (loading) {
+        uploadBtnText.textContent = 'Processando…';
+        uploadIconEl.setAttribute('data-lucide', 'loader-2');
+        uploadIconEl.classList.add('spin');
+      } else {
+        uploadBtnText.textContent = 'Selecionar arquivo';
+        uploadIconEl.setAttribute('data-lucide', 'upload');
+        uploadIconEl.classList.remove('spin');
+      }
+      lucide.createIcons();
+    }
+
+    /* ─── Copy transcription ─── */
+    function copyTranscription() {
+      if (!transcriptionRaw) return;
+      navigator.clipboard.writeText(transcriptionRaw).then(() => showToast('Transcrição copiada!'));
+    }
+
+    /* ─── Download clip ─── */
+    function downloadClip() {
+      if (!videoPlayer.src) return;
+      const a = document.createElement('a');
+      a.href = videoPlayer.src;
+      a.download = 'viral-clip.mp4';
+      a.click();
+    }
+
+    /* ─── Cloudinary widget ─── */
+    const widget = cloudinary.createUploadWidget(
+      {
+        cloudName: CLOUD_NAME,
+        uploadPreset: UPLOAD_PRESET,
+        resourceType: 'video',
+        clientAllowedFormats: ['mp3','wav','m4a','aac','ogg','mp4','mov','webm'],
+        multiple: false,
+      },
+      async (error, result) => {
+        if (!error && result?.event === 'success' && result.info) {
+          setUploadLoading(true);
+          try {
+            const viralParam = await processUpload(result.info.public_id);
+            if (viralParam) {
+              const url = `https://res.cloudinary.com/${CLOUD_NAME}/video/upload/${viralParam}/${result.info.public_id}.mp4`;
+              videoPlayer.src = url;
+              videoPanel.classList.remove('hidden');
+              gsap.fromTo('#videoPanel', { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: .5, ease: 'power2.out' });
+              setDone();
+              setStatus('Clipe viral gerado com sucesso! ✦', 100);
+            }
+          } catch (e) {
+            setError('Erro: ' + (e.message || 'falha desconhecida'));
+          } finally {
+            setUploadLoading(false);
+          }
+        }
+      }
+    );
+
+    /* ─── Handle upload click ─── */
+    function handleUploadClick() {
+      const key = apiInput.value.trim();
+      if (!key) {
+        showToast('Insira sua chave de API do Gemini primeiro.');
+        gsap.to(apiInput, { x: [-6,6,-4,4,-2,2,0], duration: .45, ease: 'power1.inOut' });
+        apiInput.focus();
+        return;
+      }
+      currentApiKey = key;
+      widget.open();
+    }
+
+    /* ─── Transcription URL ─── */
+    function buildTranscriptionURL(publicId) {
+      return `https://res.cloudinary.com/${CLOUD_NAME}/raw/upload/${publicId}.json`;
+    }
+
+    async function fetchTranscription(url) {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.subtitles)      return data.subtitles.map(s => s.text).join(' ');
+      if (data.full_transcript) return data.full_transcript;
+      if (Array.isArray(data))  return data.map(s => s.text ?? '').join(' ');
+      return JSON.stringify(data).substring(0, 3000);
+    }
+
+    /* ─── Process upload pipeline ─── */
+    async function processUpload(publicId) {
+      const url = buildTranscriptionURL(publicId);
+      const maxAttempts = 40;
+      const delay       = 15_000;
+      const initialWait = 60_000;
+
+      setStatus('Processando áudio…', 5);
+      await sleep(initialWait);
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const pct = Math.min(5 + (attempt / maxAttempts) * 52, 57);
+        setStatus(`Aguardando transcrição… (${attempt}/${maxAttempts})`, pct);
+
+        try {
+          const res = await fetch(url, { cache: 'no-store' });
+          if (res.ok) {
+            const text = await fetchTranscription(url);
+            transcriptionRaw = text;
+
+            transcTextEl.textContent = text;
+            transcPanel.classList.remove('hidden');
+            gsap.fromTo('#transcriptionPanel', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: .4, ease: 'power2.out' });
+
+            setStatus('Analisando com Gemini…', 65);
+            const param = await getViralMoment(text);
+            setStatus('Gerando clipe final…', 90);
+            return param;
+          }
+        } catch (e) {
+          console.error('Tentativa', attempt, e);
+        }
+
+        await sleep(delay);
+      }
+
+      throw new Error('Transcrição não encontrada após múltiplas tentativas.');
+    }
+
+    /* ─── Gemini ─── */
+    async function getViralMoment(text) {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+      const prompt = `Role: You are a professional video editor specializing in viral content.
+Task: Analyze the transcription below and identify the most engaging, funny, or surprising segment.
+Constraints:
+1. Duration: Minimum 30 seconds, Maximum 60 seconds.
+2. Format: Return ONLY the start and end string for Cloudinary. Format: so_<start_seconds>,eo_<end_seconds>
+3. Examples: "so_10,eo_20" or "so_12.5,eo_45.2"
+4. CRITICAL: Do not use markdown, do not use quotes, do not explain. Return ONLY the raw string.
+
+Transcription:
+${text}`;
+
+      const maxRetries = 3;
+      let response;
+      for (let i = 1; i <= maxRetries; i++) {
+        try {
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'x-goog-api-key': currentApiKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+          });
+          break;
+        } catch (e) {
+          if (!(e instanceof TypeError) || i === maxRetries) throw e;
+          await sleep(2000);
+        }
+      }
+
+      if (!response) throw new Error('Falha de conexão com o Gemini.');
+      const data = await response.json();
+      const raw = data.candidates[0].content.parts[0].text.trim();
+      return raw.replace(/```/g, '').replace(/json/g, '').trim();
+    }
+
+    /* ─── Helpers ─── */
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    /* ─────────────────────────────────────────
+       GSAP ANIMATIONS
+    ───────────────────────────────────────── */
+    gsap.registerPlugin(ScrollTrigger);
+
+    /* Hero stagger */
+    const heroItems = ['#hero-badge','#hero-title','#hero-sub','#hero-stats','#app-card'];
+    gsap.set(heroItems, { opacity: 0, y: 36 });
+    gsap.timeline({ delay: .15 })
+      .to('#hero-badge',  { opacity: 1, y: 0, duration: .65, ease: 'power2.out' })
+      .to('#hero-title',  { opacity: 1, y: 0, duration: .7,  ease: 'power2.out' }, '-=.35')
+      .to('#hero-sub',    { opacity: 1, y: 0, duration: .6,  ease: 'power2.out' }, '-=.4')
+      .to('#hero-stats',  { opacity: 1, y: 0, duration: .55, ease: 'power2.out' }, '-=.35')
+      .to('#app-card',    { opacity: 1, y: 0, duration: .6,  ease: 'power2.out' }, '-=.25');
+
+    /* Scroll reveal for .reveal elements (excluding hero items) */
+    document.querySelectorAll('.reveal:not(#hero-badge):not(#hero-title):not(#hero-sub):not(#hero-stats):not(#app-card)').forEach((el, i) => {
+      gsap.fromTo(el,
+        { opacity: 0, y: 36 },
+        {
+          opacity: 1, y: 0, duration: .65, ease: 'power2.out',
+          delay: (i % 3) * .08,
+          scrollTrigger: { trigger: el, start: 'top 87%' }
+        }
+      );
+    });
+
+    /* Bento hover tilt (subtle) */
+    document.querySelectorAll('.bento').forEach(card => {
+      card.addEventListener('mousemove', e => {
+        const r = card.getBoundingClientRect();
+        const x = ((e.clientX - r.left) / r.width  - .5) * 5;
+        const y = ((e.clientY - r.top)  / r.height - .5) * -5;
+        gsap.to(card, { rotateY: x, rotateX: y, duration: .4, ease: 'power1.out', transformPerspective: 800 });
+      });
+      card.addEventListener('mouseleave', () => {
+        gsap.to(card, { rotateY: 0, rotateX: 0, duration: .5, ease: 'power2.out' });
+      });
+    });
+
+    /* Navbar background on scroll */
+    window.addEventListener('scroll', () => {
+      const nav = document.getElementById('navbar');
+      if (window.scrollY > 50) {
+        nav.style.background = 'rgba(6,6,15,.85)';
+        nav.style.borderBottomColor = 'rgba(255,255,255,.09)';
+      } else {
+        nav.style.background = 'rgba(6,6,15,.6)';
+        nav.style.borderBottomColor = 'rgba(255,255,255,.06)';
+      }
+    }, { passive: true });
+
+    /* Init Lucide icons */
+    lucide.createIcons();
+  </script>
+</body>
+</html>
