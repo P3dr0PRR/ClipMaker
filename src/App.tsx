@@ -1,46 +1,17 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Header } from "./components/header";
 import { Button } from "./components/Button";
+import { APIKeyInput } from "./components/APIKeyInput";
+import { buildTranscriptionURL, fetchTranscription } from "./components/transcription";
+import { getViralMoment } from "./components/gemini";
 
-const cloudName = "duglttn5l";
-
-function App() {
+export function App() {
   const [transcription, setTranscription] = useState("");
   const [status, setStatus] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const apiKeyRef = useRef<HTMLInputElement>(null);
 
-  function buildTranscriptionURL(public_id: string) {
-    return `https://res.cloudinary.com/${cloudName}/raw/upload/${public_id}.transcript`;
-  }
-
-  async function getTranscription(url: string) {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Falha ao buscar transcrição: ${response.status}`);
-    }
-
-    const rawText = await response.text();
-
-    try {
-      const parsed = JSON.parse(rawText) as Array<{ transcript?: string }>;
-      const fullTranscript = parsed
-        .map((item) => item.transcript ?? "")
-        .join(" ")
-        .trim();
-
-      if (fullTranscript) {
-        setTranscription(fullTranscript);
-        setStatus("");
-        return;
-      }
-    } catch {
-      // Se nao for JSON, mostra o conteudo como texto puro.
-    }
-
-    setTranscription(rawText);
-    setStatus("");
-  }
-
-  async function handleUpload(info: { public_id: string }) {
+  async function handleUpload(info: { public_id: string }): Promise<string | undefined> {
     setTranscription("");
     const url = buildTranscriptionURL(info.public_id);
     const maxAttempts = 40;
@@ -51,17 +22,20 @@ function App() {
     await new Promise((resolve) => setTimeout(resolve, initialWait));
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      setStatus(
-        `Aguardando transcrição... (tentativa ${attempt}/${maxAttempts})`,
-      );
+      setStatus(`Aguardando transcrição... (tentativa ${attempt}/${maxAttempts})`);
 
       try {
         const response = await fetch(url, { cache: "no-store" });
 
         if (response.ok) {
           console.log(`Transcrição encontrada! - "${url}"`);
-          await getTranscription(url);
-          return;
+          const transcriptionText = await fetchTranscription(url);
+          setTranscription(transcriptionText);
+          setStatus("Analisando momento viral...");
+
+          const viralMomentParam = await getViralMoment(transcriptionText, apiKey);
+          setStatus(`Momento viral: ${viralMomentParam}`);
+          return viralMomentParam;
         }
       } catch (error) {
         console.error("Erro ao testar URL:", url, error);
@@ -76,12 +50,28 @@ function App() {
   return (
     <main>
       <Header />
-      <Button onUpload={handleUpload} />
+      <APIKeyInput
+        inputRef={apiKeyRef}
+        value={apiKey}
+        onChange={setApiKey}
+      />
+      <Button
+        id="upload_widget"
+        onUpload={handleUpload}
+        onValidate={() => {
+          if (!apiKey) {
+            alert("Por favor, insira sua chave de API do Gemini.");
+            apiKeyRef.current?.focus();
+            return false;
+          }
+          return true;
+        }}
+      />
+      <p id="status"></p>
+      <video id="video" controls></video>
 
       {status && <p>{status}</p>}
       {transcription && <p>{transcription}</p>}
     </main>
   );
 }
-
-export default App;

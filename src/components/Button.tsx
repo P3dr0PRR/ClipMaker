@@ -29,10 +29,15 @@ type CloudinaryGlobal = {
 declare const cloudinary: CloudinaryGlobal;
 
 interface ButtonProps {
-  onUpload: (info: { public_id: string; version: number }) => void;
+  id?: string;
+  onValidate?: () => boolean;
+  onUpload: (info: {
+    public_id: string;
+    version: number;
+  }) => Promise<string | undefined>;
 }
 
-export function Button({ onUpload }: ButtonProps) {
+export function Button({ id, onValidate, onUpload }: ButtonProps) {
   const config = {
     cloudName: "duglttn5l",
     uploadPreset: "upload_pedro_nlw",
@@ -52,7 +57,7 @@ export function Button({ onUpload }: ButtonProps) {
 
   const myWidget = cloudinary.createUploadWidget(
     config,
-    (
+    async (
       error: unknown,
       result: {
         event?: string;
@@ -65,19 +70,30 @@ export function Button({ onUpload }: ButtonProps) {
       } | null,
     ) => {
       if (!error && result && result.event === "success" && result.info) {
-        console.log("Upload concluido:", result.info);
-        onUpload(result.info);
+        console.log("Done here is the image info:", result.info);
+
+        try {
+          const viralMomentParam = await onUpload(result.info);
+          if (viralMomentParam) {
+            const viralMomentUrl = `https://res.cloudinary.com/${config.cloudName}/video/upload/${viralMomentParam}/${result.info.public_id}.mp4`;
+            const videoEl = document.getElementById("video") as HTMLVideoElement | null;
+            videoEl?.setAttribute("src", viralMomentUrl);
+          }
+        } catch (e) {
+          console.log({ e });
+        }
       }
     },
   );
 
   function handleClick() {
+    if (onValidate && !onValidate()) return;
     myWidget.open();
   }
 
   return (
     <section>
-      <button onClick={handleClick} className="cloudinary-button">
+      <button id={id} onClick={handleClick} className="cloudinary-button">
         Upload files
       </button>
     </section>
